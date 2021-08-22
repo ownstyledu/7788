@@ -290,52 +290,49 @@ def get_model_prediction(res_dict, model_path, model_name, exp, test_size, backe
     parameters = lemon_cfg['parameters']
     predict_st = datetime.datetime.now()
 
-
-
-
-
     if 'GPU' in device:
         """Init cuda"""
         gpu_ids = parameters['gpu_ids']
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_ids
     batch_size = 128
-    try:
-        """Get model prediction"""
-        main_logger.info("INFO:Using {} as backend for states extraction| {} is wanted".format(K.backend(), device))
-        x, y = DataUtils.get_data_by_exp(exp_identifier)
-        mut_model_name = model_name  ## modified
-        _get_prediction(bk=device, x=x, y=y, model_path=model_path, batch_size=batch_size, mut_model_name=mut_model_name)
 
-        """
-            Get prediction of models on different backends
+    for bk in backends:
+        try:
+            """Get model prediction"""
+            main_logger.info("INFO:Using {} as backend for states extraction| {} is wanted".format(K.backend(), device))
+            x, y = DataUtils.get_data_by_exp(exp_identifier)
+            mut_model_name = model_name  ## modified
+            # _get_prediction(bk=device, x=x, y=y, model_path=model_path, batch_size=batch_size, mut_model_name=mut_model_name)
+
             """
-        # test_x, test_y = x[:flags.test_size],y[:flags.test_size]
-        test_x, test_y = x[:batch_size], y[:batch_size]
-        predict_model = keras.models.load_model(model_path, custom_objects=custom_objects())
-        # predict_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        main_logger.info("INFO:load model and compile done!")
-        res = predict_model.predict(test_x, batch_size=batch_size)
-        main_logger.info("SUCCESS:Get prediction for {} successfully on {}!".format(mut_model_name, device))
-        """Store prediction result to redis"""
-        redis_conn.hset("prediction_{}".format(mut_model_name), device, pickle.dumps(res))
+                Get prediction of models on different backends
+            """
+            test_x, test_y = x[:batch_size], y[:batch_size]
+            predict_model = keras.models.load_model(model_path, custom_objects=custom_objects())
+            # predict_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+            main_logger.info("INFO:load model and compile done!")
+            res = predict_model.predict(test_x, batch_size=batch_size)
+            main_logger.info("SUCCESS:Get prediction for {} successfully on {}!".format(mut_model_name, device))
+            """Store prediction result to redis"""
+            redis_conn.hset("prediction_{}".format(mut_model_name), device, pickle.dumps(res))
 
-        # If no exception is thrown,save prediction result
-        # if pre_status_bk == 0:
-        data = pickle.loads(redis_conn.hget("prediction_{}".format(model_name), device))
-        predict_output[device] = data
+            # If no exception is thrown,save prediction result
+            # if pre_status_bk == 0:
+            data = pickle.loads(redis_conn.hget("prediction_{}".format(model_name), device))
+            predict_output[device] = data
 
-        predict_et = datetime.datetime.now()
-        predict_td = predict_et - predict_st
-        h, m, s = utils.ToolUtils.get_HH_mm_ss(predict_td)
-        mutate_logger.info("Prediction Time Used on {} : {}h, {}m, {}s".format(device, h, m, s))
+            predict_et = datetime.datetime.now()
+            predict_td = predict_et - predict_st
+            h, m, s = utils.ToolUtils.get_HH_mm_ss(predict_td)
+            mutate_logger.info("Prediction Time Used on {} : {}h, {}m, {}s".format(device, h, m, s))
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        all_backends_predict_status = False
-        mutate_logger.error("{} crash on backend {} when predicting ".format(model_name, device))
-        raise e
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            all_backends_predict_status = False
+            mutate_logger.error("{} crash on backend {} when predicting ".format(model_name, device))
+            raise e
 
     status = False
     accumulative_incons = None
