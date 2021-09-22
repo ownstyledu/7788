@@ -7,6 +7,34 @@ from collections import defaultdict
 import numpy as np
 
 
+
+
+def get_selected_layer(graph_def, input_shape_to_nodes, output_shape_to_nodes, name_to_seq_num):
+    trial_num = 0
+    while True:
+        if trial_num > 10:
+            return None
+        trial_num += 1
+        print('searching...')
+        input_shape = np.random.choice(list(input_shape_to_nodes.keys()))
+        selected_node = np.random.choice(input_shape_to_nodes[input_shape])
+        input_seq = name_to_seq_num[selected_node]
+        output_nodes = [node for node in output_shape_to_nodes[input_shape] if name_to_seq_num[node] >= input_seq]
+        if not output_nodes:
+            continue
+        output_node = np.random.choice(output_nodes)
+        tmp_nodes = []
+        assert name_to_seq_num[output_node] >= input_seq
+        for i, node in enumerate(graph_def.node):
+            if i < input_seq:
+                continue
+            n = _node_name(node.name)
+            tmp_nodes.append(n)
+            if i == name_to_seq_num[output_node]:
+                break
+        return tmp_nodes, input_shape
+
+
 # import tensorflow.python.framework.graph_util_impl as utils
 
 def remove_training_nodes(input_graph, protected_nodes=None):
@@ -128,6 +156,21 @@ def load_ph_file(pb_path):
 
     return sess.graph
 
+def fill_layers(layer_with_nodes, name_to_node):
+    first_node = name_to_node[layer_with_nodes[0]]
+
+    if not first_node.input or len(first_node.input) == 1:
+        return layer_with_nodes
+
+    first_input = name_to_node[first_node.input[1].split(':')[0]]
+    if first_input.op != 'Const':
+        return layer_with_nodes
+
+    for input in reversed(first_node.input):
+        input_n = input.split(':')[0]
+        if name_to_node[input_n].op == 'Const':
+            layer_with_nodes.insert(0, input_n)
+    return layer_with_nodes
 
 if __name__ == '__main__':
     pb_path = '../models/densenet_tf_910.pb'
@@ -155,29 +198,69 @@ if __name__ == '__main__':
     protected_ops = [graph.get_operations()[-1].node_def.name, graph.get_operations()[0].node_def.name]
     graph_def = remove_training_nodes(graph_def, protected_nodes=protected_ops)
 
+    with tf.gfile.FastGFile(pb_path, mode='wb') as f:
+        f.write(graph_def.SerializeToString())
+    graph = load_ph_file(pb_path)
+
+    selected_op = 'LA'
+
     name_to_input_name, name_to_node, name_to_seq_num = _extract_graph_summary(graph_def)
 
-    isolation_layer_to_inputs = {}
-    layer_to_nodes = defaultdict(list)
-    new_layer_flag = False
-    tmp = []
-    for node in graph_def.node:
-        n = node.name
-        _node = name_to_node[n]
-        op = _node.op
-        assert op in supported_ops
-        if op == 'Placeholder' or n in protected_ops or op in activation_ops:
-            layer_name = n
-        elif op in isolation_ops:
-            layer_name = n
-        elif layer_name in _node.input:
-            pass
-        else:
-            tmp.append(n)
-            continue
-        for tmp_node in tmp:
-            layer_to_nodes[layer_name].append(tmp_node)
-        tmp = []
-        layer_to_nodes[layer_name].append(n)
+    input_shape_to_nodes = defaultdict(list)
+    output_shape_to_nodes = defaultdict(list)
 
-    print(layer_to_nodes)
+    for name, node in name_to_node.items():
+        n = _node_name(name)
+        op = graph.get_operation_by_name(n)
+        if op.inputs and op.outputs:
+            input_shape = op.inputs[0].shape[1:]
+            output_shape = op.outputs[0].shape[1:]
+            input_shape_to_nodes[str(input_shape)].append(n)
+            output_shape_to_nodes[str(output_shape)].append(n)
+
+    node_all = []
+    if selected_op in ['LA']:
+        selected_layer, layer_shape = get_selected_layer(graph_def, input_shape_to_nodes,
+                                                         output_shape_to_nodes, name_to_seq_num)
+
+        selected_layer = fill_layers(selected_layer, name_to_node)
+        # if selected_layer is None:
+        #     return False, None, None
+        if selected_op == 'LA':
+            suffix = '_LA'
+            insert_points = input_shape_to_nodes[layer_shape]
+            insert_layer = np.random.choice(insert_points)
+
+        prev_node = insert_layer
+        new_layer = []
+        for index, name in enumerate(selected_layer):
+            node = name_to_node[name]
+            new_node = node_def_pb2.NodeDef()
+            new_node.CopyFrom(node)
+            new_node.name = new_node.name + suffix
+            for i, node_input in enumerate(node.input):
+                if node_input not in selected_layer and i == 0:
+                    new_node.input[i] = prev_node
+                    print('rebuld: link {} to {}'.format(prev_node, new_node.name))
+                elif node_input in selected_layer:
+                    new_node.input[i] = node_input + suffix
+                new_layer.append(new_node)
+            seq = name_to_seq_num[prev_node]
+            insert_flag = False
+            for i, node in enumerate(graph_def.node):
+                if i == seq + 1:
+                    print(i)
+                    for new_node in new_layer:
+                        node_all.append(new_node)
+                    insert_flag = True
+                if insert_flag and prev_node in node.input:
+                    node.input[0] = new_node.name
+                node_all.append(node)
+        output_graph = graph_pb2.GraphDef()
+        output_graph.node.extend(node_all)
+
+        mutant_pb_path = '../models/mutate_pb.pb'
+        with tf.gfile.FastGFile(mutant_pb_path, mode='wb') as f:
+            f.write(output_graph.SerializeToString())
+
+
