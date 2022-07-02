@@ -264,3 +264,14 @@ if __name__ == '__main__':
             f.write(output_graph.SerializeToString())
 
 
+startup_message off
+vbell off
+autodetach on
+defscrollback 1024
+escape ^Zz
+
+term xterm-256color
+
+caption string "%?%F%{= Bk}%? %C%A %D %d-%m-%Y %{= kB} %t%= %?%F%{= Bk}%:%{= wk}%? %n "
+hardstatus alwayslastline
+hardstatus string '%{= kG}[ %{G}%H %{g}][%= %{= kw}%?%-Lw%?%{r}(%{W}%n*%f%t%?(%u)%?%{r})%{w}%?%+Lw%?%?%= %{g}][%{B} %d-%m-%Y %{W}%c:%s %{g}]'
