@@ -1,0 +1,6 @@
+Localization
+
+
+For bug detection, it is not enough to just find the problematic model, we also need to know where the bug occurred, resulting in a functional bug or the final accuracy is not up to standard. However, problem location based on DNN model is time-consuming and labor-intensive: the usual practice is that we need to calculate the calculation result of each node, and then compare it with the gold standard one by one until the position with a large error is found. It gets worse when there are multiple compilation bugs for the same model. We have to repeat the above process after fixing the first problem to ensure that the accuracy problem of the later computing nodes is not caused by the previous problem.
+
+Surprisingly, we found that the related work in the past rarely focused on the optimization process of DNN bug location, but only concerned with how to get rid of bugs by some means. In this paper，E2Detect alleviates the time-consuming and labor-intensive problem of bug locating by using verified sub-gallery
