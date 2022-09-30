@@ -1,0 +1,809 @@
+%%%%%%%%%%%%%%%%%%%%%%% file tempvilate.tex %%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% This is a general template file for the LaTeX package SVJour3
+% for Springer journals.          Springer Heidelberg 2010/09/16
+%
+% Copy it to a new file with a new name and use it as the basis
+% for your article. Delete % signs as needed.
+%
+% This template includes a few options for different layouts and
+% content for various journals. Please consult a previous issue of
+% your journal as needed.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% First comes an example EPS file -- just ignore it and
+% proceed on the \documentclass line
+% your LaTeX will extract the file if required
+\begin{filecontents*}{example.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 19 19 221 221
+%%CreationDate: Mon Sep 29 1997
+%%Creator: programmed by hand (JK)
+%%EndComments
+gsave
+newpath
+  20 20 moveto
+  20 220 lineto
+  220 220 lineto
+  220 20 lineto
+closepath
+2 setlinewidth
+gsave
+  .4 setgray fill
+grestore
+stroke
+grestore
+\end{filecontents*}
+%
+\RequirePackage{fix-cm}
+%
+%\documentclass{svjour3}                     % onecolumn (standard format)
+%\documentclass[smallcondensed]{svjour3}     % onecolumn (ditto)
+% \documentclass[smallextended]{svjour3}       % onecolumn (second format)
+\documentclass[twocolumn]{svjour3}          % twocolumn
+%
+\smartqed  % flush right qed marks, e.g. at end of proof
+%
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{mathtools}
+% \usepackage{caption2}
+% \usepackage{cite}
+% \usepackage[linesnumbered,boxed]{algorithm2e}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}} % Use Input in the format of Algorithm
+\renewcommand{\algorithmicensure}{\textbf{Output:}} % Use Output in the format of Algorithm
+
+\newcommand{\etal}{\textit{et al.}}
+\newcommand{\eg}{\textit{e.g., }}
+\newcommand{\ie}{\textit{i.e., }}
+\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
+\usepackage{natbib}
+\usepackage{amsfonts}
+
+%
+% \usepackage{mathptmx}      % use Times fonts if available on your TeX system
+%
+% insert here the call for the packages your document requires
+%\usepackage{latexsym}
+% etc.
+%
+% please place your own definitions here and don't use \def but
+% \newcommand{}{}
+%
+% Insert the name of "your journal" with
+\journalname{International Journal of Computer Vision}
+%
+\hyphenation{op-tical net-works semi-conduc-tor bra-nch pat-ches Alex-Net data-sets}
+\begin{document}
+
+\title{Cross-Domain Gated Learning for Domain Generalization}
+
+%\titlerunning{Short form of title}        % if too long for running head
+
+\author{Dapeng Du~\and~
+Jiawei Chen~\and~
+Yuexiang Li~\and~
+Kai Ma~\and~
+Gangshan Wu~\and~
+Yefeng Zheng~\and~
+Limin Wang}
+
+%\authorrunning{Short form of author list} % if too long for running head
+\institute{Dapeng Du \at
+           State Key Laboratory for Novel Software Technology, Nanjing University, China. \\
+           \email{dudp.nju@gmail.com}
+           \and
+           Jiawei Chen \at
+              Tencent Jarvis Lab, China. \\
+              \email{jiaweichen@tencent.com}
+           \and
+           Yuexiang Li \at
+              Tencent Jarvis Lab, China. \\
+              \email{vicyxli@tencent.com}
+           \and
+           Kai Ma \at
+              Tencent Jarvis Lab, China. \\
+              \email{kylekma@tencent.com}
+           \and
+           Gangshan Wu \at
+              State Key Laboratory for Novel Software Technology, Nanjing University, China. \\
+              \email{gswu@nju.edu.cn}
+           \and
+           Yefeng Zheng \at
+              Tencent Jarvis Lab, China. \\
+              \email{yefengzheng@tencent.com}
+           \and           
+           Limin Wang \at
+              State Key Laboratory for Novel Software Technology, Nanjing University, China. \\
+              \email{lmwang@nju.edu.cn}
+}
+\date{Received: date / Accepted: date}
+% The correct dates will be entered by the editor
+
+
+\maketitle
+
+\begin{abstract}
+Domain Generalization (DG) aims to improve the generalization capacity of a model by leveraging useful information from the multi-domain data. However, learning an effective feature representation from such multi-domain data is challenging, due to the domain shift problem. In this paper, we propose an information gating strategy, termed Cross-Domain Gating (CDG), to address this problem. Specifically, we try to distill the domain-invariant feature by adaptively muting the domain-related activations in the feature maps. This feature distillation process prevents the network from overfitting to the domain-related detailed information, and thereby improves the generalization ability of learned feature representation. Extensive experiments are conducted on three public datasets. The experimental results show that the proposed CDG training strategy excellently enforces the network to exploit the intrinsic features of objects from the multi-domain data, and achieves a new state-of-the-art domain generalization performance.
+
+\keywords{Domain Generalization \and Representation Learning \and Dropout \and Information Bottleneck}
+% \PACS{PACS code1 \and PACS code2 \and more}
+% \subclass{MSC code1 \and MSC code2 \and more}
+\end{abstract}
+
+\section{Introduction}
+\label{sec:introduction}
+
+Convolutional Neural Networks (CNNs) \citep{imagenetkrizhevsky2012} have shown impressive power for computer vision tasks, such as object recognition \citep{imagenetkrizhevsky2012,HeZRS16,simonyan2014very}, scene recognition \citep{zhou2016places,WangGHX017,du2019translate}, image parsing \citep{long2015fully,chen2017deeplab}, object detection \citep{girshick2015fast,HeGDG20}, and action recognition \citep{SimonyanZ14,wang2016temporal}. However, unlike humans who can generalize prior knowledge effortlessly to novel unseen domains, CNNs still suffer from the domain shift problem \citep{moreno2012unifying}.
+In this sense, the accuracy of models tends to drop rapidly when tested on novel domains, which have different statistical distributions from the training data. For example, a model trained on natural pictures is difficult to generalize well to cartoon images. One potential solution to the domain shift problem is Unsupervised Domain Adaptation (UDA) \citep{gong2014learning,long2015learning,saito2019semi,ganin2015unsupervised,li2020unsupervised}, which narrows down the gap between domains via feature alignment in the latent space. However, the training of UDA approaches requires the pre-collection of target domain data that is difficult to fulfill in practice \citep{muandet2013domain}. 
+
+%--------------------Figure story ------------------------------------
+\begin{figure}
+  \centering
+  \includegraphics[width=0.5\textwidth]{figures/story.pdf}
+  \caption{Visualization of model attentions using CAM technique in the CDG training. Given an input image (a), the attention variance caused by the gated information is illustrated in (b) and (d). The gating information is offered by an auxiliary domain-specific model, trained on a domain with very different statistics, which exhibits a disparate activation on the same image, as shown in (c).}
+  \label{fig:story}
+\end{figure}
+%-------------------------------------------------------------------------
+
+To this end, Domain Generalization (DG), loosing the pre-collection requirement, attracts increasing attentions from the community in recent years. DG aims to learn a robust feature representation from multi-domain data, which can easily generalize to the unseen domains. Compared to UDA, the setting of DG is more challenging as the data from the target domain is unreachable. Such a setting requires the model to deeply exploit the object-related information from multi-domain data, regardless of domain-specific details. Various studies have been proposed for domain generalization, which can be separated to two categories. On one hand, researchers \citep{zakharov2019deceptionnet, yue2019domain} proposed to enrich the learned features to cover the span of target domain by generating synthetic training data. On the other hand, some studies \citep{muandet2013domain, wang2019learning} have been proposed to learn a domain-invariant feature representation for the better generalization. Witnessed the recent impressive progresses \citep{huangRSC2020, li2019episodic}, this study also focuses on the latter direction.
+
+%--------------------Figure framework ------------------------------------
+\begin{figure*}
+  \centering
+  \includegraphics[width=0.95\textwidth]{figures/framework.pdf}
+  \caption{{\bf The pipeline of CDG strategy}. CDG training framework is comprised of two branches: the main branch serves the target model training while the lateral cross-domain gating branch aims at discarding redundant domain-specific information for the main branch. The Auxiliary Domain-Specific (ADS) CNN is trained using data from domain $j$ and has never seen data from domain $i$ or other domains. When training the target model with data from domain $i$, we extract its features from a specific layer and turn to the lateral cross-domain gating branch with the following steps: 1) route the features across the ADS model, 2) calculate gating masks $W^\mathbf{y}$, and 3) distill the original features with gating masks. We use the gated features in the following process of the main branch. $\odot$ denotes an element-wise product. In the gating branch, we randomly choose an ADS model and do not update its parameters when generating masks. We only use the main branch in the test phase.}
+  \label{fig:framework}
+\end{figure*}
+%-------------------------------------------------------------------------
+
+In this paper, we propose a Cross-Domain Gating (CDG) strategy to improve the domain generalization capacity of CNN models. Our CDG strategy is built upon a basic assumption \citep{tishby2000information}, generalization of a model can be improved by discarding the superfluous information contained in its extracted features, which is unnecessary for the accurate prediction. Inspired by this information-theoretic principle, we explore to explicitly remove redundant information from learned features during the model training. In other words, models are enforced to learn essential object-related features, regardless of the domain-specific information. Hence, the core of our CDG training framework is the feature gating branch, \ie determining which parts of the feature maps are domain-related.
+% \ie to determine which part of features should be discarded in the training. 
+Although previous feature-level dropout methods \citep{tompson2015efficient, ghiasi2018dropblock}, \eg randomly muting high-level activations, are proved to be helpful for the regularization of network training, we argue that this might not be the optimal solution for DG. Our CDG approach improves the existing methods from two aspects: 1) Instead of dropping the high-level semantic features, the proposed CDG approach focuses on discarding low-level information, which more effectively affects the DG performance of a model; 2) Different from the random dropping adopted by existing approaches, our CDG approach mutes the activations using cross-domain activation maps, which prevents the model from mistakenly removing the intrinsic features of objects.
+
+The underlying principle of our CDG strategy is illustrated in Fig.~\ref{fig:story}. We visualize the attention of the model using the Class Activation Mapping (CAM) technique \citep{zhou2016learning}. Originally, the model activates the nose and body of the elephant for the accurate recognition (Fig.~\ref{fig:story} (b)). To determine the domain-specific information contained in the feature map, we feed the image to an Auxiliary Domain-Specific (ADS) CNN, which is trained with images from another domain, taking cartoon images for example. Then, the activation map yielded by the cartoon-image trained ADS (as shown in Fig.~\ref{fig:story} (c)) is used to filter the redundant information contained in the original feature map and finally yields the intrinsic feature (Fig.~\ref{fig:story} (d))---the activation from the elephant body is reduced, while the nose (more representative for the elephant) is still highly activated. 
+
+The pipeline of our CDG training framework is presented in Fig.~\ref{fig:framework}. To deal with multi-domain data, we train a set of ADS networks, where each of them is trained using the single domain data. Such ADS networks can activate representative areas for objects from their own domain-specific view. Therefore, the areas mutually activated by those representative activations can be seen as domain-invariant and adopted for the accurate cross-domain classification. To achieve this, we propose to integrate the representative activation maps yielded by ADS networks in a cross-domain manner. Specifically, we aggregate the cross-domain gradients and generate the gating masks to distill object-related features. Furthermore, we propose a \textit{drop-while-preserve} strategy to ensure the model learns sufficient information from cross-domain activation maps. Since the main branch is trained both with and without gating, it learns to highlight the most representative parts of an object (ref. Fig.~\ref{fig:story}(d)); the process of which does not rely on the ADS branch when the training converges. So, in the end, we use only the main branch during inference. It is worthwhile to mention that many existing DG methods are built with task-specific architectures, optimizers and data augmentation \citep{li2017deeper,li2017learning,shankar2018generalizing}. In contrast, our CDG strategy directly processes the extracted features, which is easily applied to the existing network architectures. 
+
+We conduct experiments on three DG benchmark datasets and our CDG approach consistently outperforms the state-of-the-art methods. We also perform extensive ablation studies to verify the effectiveness and show the characteristics of our CDG method. The main contributions of this paper are summarized as follows:
+
+\begin{itemize}
+  \item We propose to learn a better generalized model by explicitly discarding redundant low-level information, which shows a promising exploration for the domain generation task.
+
+  \item We introduce a novel gated training strategy for the domain generalization task, which enforces the network to focus on essential object-related features. The model trained with our gating strategy achieves the state-of-the-art DG performance on three DG benchmark datasets.
+
+  \item We demonstrate the expandability and flexibility of CDG with various experimental results, building a wider bridge across domains for DG task.
+\end{itemize}
+
+%*********************************************************************
+%***********************Related Work**********************************
+%*********************************************************************
+\section{Related Work}
+\subsection{Domain Generalization}
+There are a few of research lines in domain generalization, including data augmentation, meta-learning, and domain invariant feature learning.
+
+\textbf{Data Augmentation}: A few studies used additional synthetic data in the training, which aimed at learning more diverse features that led the model to better generalization on novel domains. For example, Shankar \etal \citep{shankar2018generalizing} proposed CrossGrad that used domain-guided perturbations on input data  with adversarial gradients by an auxiliary domain classifier. Zhou \etal \citep{zhou2020learning}~augmented the source domain by generating synthesized pseudo-novel domain data.
+
+\textbf{Meta-Learning}: Recently, meta-learning based methods have been proposed in DG learning, which enable the model to acquire common knowledge by leveraging a set of related tasks. MetaReg \citep{balaji2018metareg} learned a meta regularizer to address the domain shifts. Li \etal \citep{li2019feature}~proposed an auxiliary loss in a meta-learning based approach on feature-critic network. MetaVIB \citep{du2020learning} introduced the information bottleneck principle for domain-invariant representation learning with an episodic training strategy.
+
+\textbf{Domain Invariant Feature Learning}: Some works proposed to learn a domain-invariant feature representation, by decoupling the relations of source domains, which led to source-domain invariant features that generalized well to novel domains. For example, Muandet~\etal \citep{muandet2013domain}~proposed to learn an invariant transformation by minimizing the dissimilarity across domains, whilst preserving the functional relationship between input and output variables, and Ghifary \etal \citep{ghifary2015domain} transformed the original image to multi-domain analogs. Li~\etal \citep{li2018domain} involved maximum mean discrepancy to an auto-encoder via adversarial training.
+
+Recent efforts achieved impressive improvement on using limited activations in the training to activate more helpful information, and our proposed CDG also goes along this direction. We compare the proposed CDG with two most related works here: 
+
+1) Epi-FCR \citep{li2019episodic} exposed layers to other domain-specific neighbors to train a robust model. Though CDG and Epi-FCR have something in common, \eg they all build on a strong aggregation model and share a similar general idea that the training could benefit from a constrained weight update through cross-domain activation, the two methods are inherently different: 1) The difference on \textbf{cross-domain information usage}. In Epi-FCR, the cross-domain gradients are directly back-propagated to the target model on weight update. In contrast, inspired by the information bottleneck theory CDG performs a regular weight update, in which the cross-domain activation is in charge of generating a mask to gate forward features. 2) The difference on \textbf{training procedure}. Epi-FCR trains in a intersection manner where the target model's \textit{feature-extractor/classifier} interact with domain-specific networks' \textit{classifiers/feature-extractors} separately (so-called episodic). In contrast, CDG trains an enhanced target model in an end-to-end way, where input features are still fed into its own classifier for an overall enhancement. 
+% CDG also leverages disparate domain-specific networks; however, cross-model features are not routed to the target model in our CDG.
+% Instead, we perform a cross-domain class activation process, and the cross-domain features are used to gate the original features, which is intrinsically different from Epi-FCR.
+
+2) Representation Self-Challenging  \citep{huangRSC2020} (RSC) employed a self-challenging strategy \textbf{enhancing the less predictive features} for an overall promotion. In contrast, CDG leverages the Information bottleneck theory for the maximum label prediction \textbf{with the most predictive features}. As a result, RSC builds a model that skills in integrating comprehensive information for prediction while CDG polishes the model to learn intrinsic characteristics of a specific category across domains. Another difference is that RSC does not involve cross-domain information in the training, while CDG locates redundant features by cross-domain supervision and the mask is determined without human intervention (compared with manual sorting in \citep{huangRSC2020}). 
+
+\subsection{Dropout Regularization}
+Since our CDG builds on discarding features in the training, we give a comparison with dropout based methods. Cutout \citep{devries2017improved} and HaS \citep{singh2017hide} split images to patches which were randomly dropped in the training. Unlike standard feature dropout where each convolution feature map activation was muted independently, SpatialDropout \citep{tompson2015efficient} randomly dropped features across channels. In \citep{ghiasi2018dropblock}, DropBlock was proposed to drop contiguous units within a feature map instead of random units. MaxDrop \citep{park2016analysis} dropped features of high activations while DropPath directly muted all the modules within a layer. Adversarial Dropout \citep{ParkPSM18} combined the perturbation concept with dropout on hidden layers, which maximized the divergence between the training signal and network outputs. The Drop to Adapt (DAT) method leveraged adversarial dropout \citep{ParkPSM18} to learn strongly discriminative features by enforcing the cluster assumption. RSC \citep{huangRSC2020} muted most predictive parts of feature maps by sorting gradients.
+
+Our CDG differs inherently from previous works mentioned above in that we neither drop features randomly \citep{devries2017improved, singh2017hide, ghiasi2018dropblock}, mute dominate activations to promote the learning chance for other units \citep{park2016analysis,huangRSC2020}, nor predict divergence maximization \citep{ParkPSM18}. Instead, we propose CDG to explicitly discard redundant features to focus only on label-related information in the training. Another important difference is that we introduce the cross-domain knowledge in the training, which has not been explored in previous dropout works. In addition, we argue that it is more effective to drop low-level information which is also different from most related works on performing the dropout.
+
+\subsection{Information Bottleneck (IB)} The IB theory proposed an information-theoretic principle of using the minimum information of input data for the maximum label prediction. It is achieved by simultaneously 1) minimizing the mutual information between the input $X$ and its latent variable $Z$, and 2) maximizing the mutual information between $Z$ and the label $Y$, which could be formulated to balance the following equation
+
+%-----------------------------------------------------------------------
+\begin{eqnarray}
+  \label{eqn:ib}
+  I(Z; Y) = I(X; Y)
+  % I(X; Z) is minimal among suffient Z
+\end{eqnarray}
+%-----------------------------------------------------------------------
+where $I(\cdot)$ refers to the mutual information. In addition, two conditions should be satisfied: 1) $I(X; Z)$ is minimal among suffient $Z$, and 2) $Z$ should be invariant to nuisances. Information is discarded so the model is forced to learn most representative features with limited resources.
+Recently, the IB principle has been introduced to analyze the deep neural networks \citep{amjad2019learning,kolchinsky2018caveats,peng2018variational,shwartz2017opening,tishby2015deep}. Meanwhile, it has also been applied to different scenarios and applications, \eg Federici~\etal \citep{federici2020learning} extended IB to label-free multiview condition where two views of the same entity were provided. Du~\etal \citep{du2020learning} introduced IB to meta-learning for domain generalization settings. Our work is inspired from the compression idea of the IB principle, but we do not formulate \textit{implicit} mutual information or distribution in the training. Our method performs in a totally different manner that we \textit{explicitly} discard information in the feature level instead of the latent representation. In addition, the compression signal is formulated from the cross-domain class activation supervision, which has never been explored before.
+
+\subsection{Class Activation Mapping}
+Class Activation Mapping (CAM) \citep{zhou2016learning} is a technique to make CNN models explainable. It seeks discriminative regions by applying linearly weighted combination to the activation maps of the last convolutional layer before the Global Average Pooling (GAP). To overcome the main problem of CAM that not every model is specially designed with a global pooling layer, Grad-CAM \citep{selvaraju2017grad} generalized CAM to a broader range of CNN architectures without modifying the original model, by calculating the importance of each channel through the gradient of class confidence. Later, a couple of works \citep{chattopadhay2018grad,omeiza2019smooth,wang2020score} proposed various mapping algorithms to improve the CAM to locate the objects in the images more precisely. Our work does not focus on improving the CAM, instead, we leverage its region finding capability and propose to use it as the feature filter for the DG model training. We extend it to the cross-domain condition, in which we feed features to a disparate domain-specific network to calculate the class activation, and generate a cross-domain mask to locate the redundant domain-specific information.
+
+%*********************************************************************
+%***********************Method**********************************
+%*********************************************************************
+\section{Method}
+\label{sec:cdg}
+In this section, we illustrate the principle underlying the proposed Cross-Domain Gating (CDG) strategy in details. The framework to perform CDG training consists of two branches, as shown in Fig.~\ref{fig:framework}. A standard CNN model is trained in an end-to-end manner with data from all source domains ($\mathcal{D}=[\mathcal{D}_{1}, ..., \mathcal{D}_{n}]$, where $n$ is the number of source domains) in the main branch, while the cross-domain gating branch includes $n$ Auxiliary Domain-Specific (ADS) networks trained with one of the source domains. During the training, the cross-domain gating branch serves as a gating indicator to remove redundant domain-specific information from the features generated by the main branch. Finally, the well-trained main branch CNN is used to perform the cross-domain object classification task. 
+
+
+
+\subsection{Cross-Domain Gated Feature Selection}
+As aforementioned, a cross-domain gating branch is proposed to localize and mute the redundant domain-specific information in the activation maps yielded by the main branch. Here, we provide a detailed introduction of the pipeline of our CDG training framework. Given an input image $\mathbf{x_i}$ from the source domain $D_i$ and its label $y$, our CDG extracts the  features $\mathbf{f_{i}}^l$ of $\mathbf{x_i}$ yielded by the main branch and then feeds them to one of the ADS networks, i.e., the ADS network $\theta_j$ trained with $D_j$ as shown in Fig.~\ref{fig:framework}, where $j \neq i$, for object-related information distillation. $\theta_j$ outputs a probability distribution and the gradients with respect to the $\mathbf{f_{i}}^l$ generated by the ADS network $\theta_j$ can be calculated by: 
+
+%-----------------------------------------------------------------------
+\begin{eqnarray}
+  \label{eqn:gradient}
+  % \mathcal{L}(\theta_{j}(\mathbf{f_{i}}^l), \mathbf{y}) \rightarrow \mathbf{g^Y_{c}},
+  \mathbf{g^{\mathbf{y}}} = \frac{\partial \mathbf{y}}{\partial \mathbf{f_{i}}^l}
+\end{eqnarray}
+%-----------------------------------------------------------------------
+where $\mathbf{y}$ denotes the probability for predicting the specific class. The generated gradients are adopted as guidelines to mute the domain-specific information in the activation maps. The refined activation maps are denoted as cross-domain class activation $\mathcal{C}$, which can be formulated as:
+
+%-----------------------------------------------------------------------
+\begin{eqnarray}
+  \label{eqn:cross_domain_mapping}
+  \mathcal{C} = \mathbf{f_{i}}^l\odot W^\mathbf{y},
+\end{eqnarray}
+%-----------------------------------------------------------------------
+where $\odot$ denotes the element-wise multiplication. $W^\mathbf{y}$ is the correlation coefficients calculated by aggregating the gradients of $\mathbf{g^{\mathbf{y}}}$, which can be seen as the weights for the feature maps during optimization. The detailed information of aggregating function is introduced in Section~\ref{sec:weights}.
+
+According to $W^\mathbf{y}$, the positions with negative values contain less object-related information, which are expected to be muted. In other words, the $\mathcal{C}$ calculates the regions of interest of $\mathbf{f_{i}}^l$ estimated by ADS network $\theta_j$; therefore, a gating mask $\mathbb{I}$ can be constructed by performing a binarization operation on $\mathcal{C}$:
+
+
+%-----------------------------------------------------------------------
+\begin{equation}
+  \label{eqn:mask}
+  \mathbb{I} =
+  \begin{cases}
+    1 & \mathcal{C}>0     \\
+    0 & \mathcal{C}\leq 0
+  \end{cases}.
+\end{equation}
+%-----------------------------------------------------------------------
+
+Then, we apply the mask to the original features $\mathbf{f_{i}}^l$ to obtain the gated features by
+
+%-----------------------------------------------------------------------
+\begin{equation}
+  \label{eqn:gated}
+  \mathbf{\hat{f}_{i}}^l = \mathbf{f_{i}}^l \odot \mathbb{I},
+\end{equation}
+%-----------------------------------------------------------------------
+and feed them back to the main branch to continue its end-to-end training procedure, as illustrated in Fig.~\ref{fig:framework}.
+
+
+%----------------------------Fig. channel-wise and spatial-wise--------------------------------
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.4\textwidth]{figures/weight_function.pdf}
+  \caption{Channel-wise $\phi_c$ and spatial-wise $\phi_s$ based aggregating functions to calculate the weights from cross-domain gradients. $\phi_c$ summarizes each feature map to a number leading to a 1D vector while $\phi_s$ averages the feature elements across channels to a matrix. Intuitively, two functions focus on \textit{what} and \textit{where} to represent the features, respectively. We combine two functions in the training of CDG to achieve the best results.}
+  \label{fig:weight}
+\end{figure}
+%-----------------------------------------------------------------------
+
+\subsection{Channel-wise and Spatial-wise CDG}
+\label{sec:weights}
+We implement two approaches, i.e., channel-wise aggregation and spatial-wise aggregation, to calculate the weight $W^\mathbf{y}$ for the cross-domain features, which are widely-used in many computer vision tasks, such as visualization \citep{selvaraju2017grad,chattopadhay2018grad,omeiza2019smooth,wang2020score}, image captioning \citep{you2016image}, and attention \citep{chen2017sca}. The pipeline of aggregating information on the gradients $g^y$ is shown in Fig.~\ref{fig:weight}. For {\itshape channel-wise aggregation}, we first average each channel of $\mathbf{g^y}$, leading to a one-dimensional weight vector. Then, the element of the weight vector is multiplied to the corresponding feature map of $\mathbf{f_{i}}^l$, which provides the channel-wise activation and suppression. The {\itshape spatial-wise aggregation} computes $W^\mathbf{y}$ to accordingly activate/mute each pixel on the feature map, i.e., the spatial-wise $W^\mathbf{y}$ is a weight matrix of the same spatial size to the feature map, which indicates the weight for each pixel. Then, the same $W^\mathbf{y}$ is multiplied to each feature map of $\mathbf{f_{i}}^l$ to achieve spatial-wise cross-domain activation.
+
+%------------------------------------------------------------------------
+\begin{algorithm}[tb]
+  \caption{CDG training algorithm.}
+  \label{alg:strategy}
+  {\bf Input:}
+  training domains $\mathcal{D}=[\mathcal{D}_1, \mathcal{D}_2, ..., \mathcal{D}_n]$, \\
+  target model $\theta$ containing $N$ layers, \\
+  ADS models $\theta_i, i\in [1,2, ..., n]$, \\
+  gating layer $l$, max epoch $T$, gating rate $p$
+  \begin{algorithmic}[1]
+    \For{$t=1$ to $T$}
+    \State Pick random probability number $r$ in [0, 1]
+    \If{$r<p$}
+    \State // perform CDG
+    \State Sample mini-batch ($\mathbf{x}_i$, $\mathbf{y}_i$) from each domain $\mathcal{D}_i$
+    \State Update ADS model $\theta_i$ using batch data
+    \State Calulate $\mathbf{f_{i}}^l$ through $\theta$ with forward pass
+    \State Calulate $\mathbf{g^y}$ with ADS $\theta_j(i\neq j)$ using Eq.~(\ref{eqn:gradient})
+    \State Calulate $\mathcal{C}$ with Eq.~\ref{eqn:cross_domain_mapping}
+    \State Calulate gated $\mathbf{f_{i}}^l$ with masks in Eqs.~(\ref{eqn:mask}) and~(\ref{eqn:gated})
+    \State Update $\theta$ from layer $l$ and above
+    \Else
+    \State // perform vanilla training
+    \State Sample mini-batch from all domains $\mathcal{D}$
+    \State Forward and backward pass with mixed batches
+    \State Update entire $\theta$
+    \EndIf
+    \State end if
+    \EndFor
+    \State end for
+  \end{algorithmic}
+\end{algorithm}
+%------------------------------------------------------------------------
+
+
+\subsection{Training Strategy}
+\label{sec:strategy}
+
+
+We define a hyperparameter $p$, \ie \textit{gating rate}, to randomly train the main branch with/without the cross-domain gating branch, which simultaneously increases the diversity and generalization of learned features. Note that $p$ is different from the one used in standard dropout methods, which randomly mute a pre-defined number of neurons. The gating rate defined in our CDG approach decides the frequency of performing cross-domain gating operation during the training procedure.
+
+Furthermore, since the optimization directions may be different while training the network with/without the cross-domain gating (CDG) branch, the model usually fails to well converge with a large $p$. Therefore, we propose a \textit{drop-while-preserve} strategy to deal with this problem. Specifically, the weights of the layers before the gated features are frozen while optimizing the main branch with the CDG branch. In the step of training without CDG branch, those layers are unlocked and updated. Such that, the information extracted in earlier layers by vanilla training can be preserved across the whole training procedure, which aligns the optimization direction of the two kinds of training. 
+
+Only classification loss is used in the training phase for the ADS networks and the main branch model, respectively. The overall training procedure is presented in Algorithm~\ref{alg:strategy}. 
+
+
+
+\subsection{CDG on Low-level Information}
+\label{sec:low-level}
+Existing studies reveal that a well-trained CNN model encodes information via a couple of stages. In general, the earlier layers capture more generic patterns, while the deeper ones could encode more comprehensive information and pay more attention on semantics. 
+
+% Hence, as the basis for semantic features, the extraction of such mid-level features plays an important role for the accurate classification.
+
+However, since there exist significant distribution gaps for images from different source domains, gating information in high-level semantic layers might be suboptimal in the domain generalization task. We propose to gate the feature maps from earlier layers rather than the deeper ones, considering that features extracted from earlier layers could show more disparate domain-specific characteristics. To validate this statement, an experiment is conducted on the PACS dataset, which involves data from four domains (\ie sketch, art, cartoon, and photo). Specifically, we calculate the classification performance of the \textit{sketch} ADS network on the \textit{sketch} data as the baseline, and feed the extracted features to other ADS networks (art, cartoon, photo), respectively. This cross-domain forward starts from different position of the network, as shown in Fig.~\ref{fig:cross_domain_extraction}; we test the corresponding classification accuracy and present the experimental results in Fig.~\ref{fig:cross_domain_acc}. The ResNet-18 is adopted as the backbone. The horizontal axis represents feeding the features yielded by different stages of an ADS network.
+
+% ----------------------------Fig. cross_domain extraction--------------------------------
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.5\textwidth]{figures/cross_domain_extraction.pdf}
+  \caption{Cross-domain forward. We exhibit the process by routing data from domain1 (D1) to the disparate ADS network skilled in another domain (D2) at different stages. The forward pass with \textbf{*} refers to the standard forwarding, which means the network takes the image from its skilled domain.}
+  \label{fig:cross_domain_extraction}
+\end{figure}
+% -----------------------------------------------------------------------
+
+
+As shown in Fig.~\ref{fig:cross_domain_acc}, there are several observations: 1) The classification accuracy drops while feeding features extracted by other ADS networks to the sketch one, due to the problem of domain shift. 2) Feeding the high-level features (\eg the ones from layer3 and layer4) achieves relatively higher accuracy than the features from earlier layers (layer1 and layer2). This observation supports our intuition that the diversity of source domains presents severer domain shift in earlier feature representation. Hence, the proposed CDG framework focuses on regularizing the filters in shallow layers to improve the generalization ability of the main branch model.
+%----------------------------Fig. cross_domain acc--------------------------------
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.45\textwidth]{figures/cross_domain_acc.pdf}
+  \caption{Test accuracy of cross-domain feeding on the PACS dataset \citep{li2017deeper}. We inference different domain-specific networks with the data from the \textit{sketch} domain. The inputs are the features extracted by the \textit{sketch} ADS network, and the cross-domain feeding starts from different layers. We plot the classification accuracy against the start position.}
+  \label{fig:cross_domain_acc}
+\end{figure}
+%-----------------------------------------------------------------------
+
+%--------------------Figure datasets ------------------------------------
+\begin{figure*}[htb]
+  \centering
+  \includegraphics[width=0.95\textwidth]{figures/datasets.pdf}
+  \caption{Example images from different DG datasets. Among all the used three datasets, the PACS dataset exists the most severe domain shift while domains in Office-Home exhibit the similar statistics.}
+  \label{fig:datasets}
+\end{figure*}
+%-------------------------------------------------------------------------
+
+%*********************************************************************
+%*********************** Experiments **********************************
+%*********************************************************************
+\section{Experiments}
+We conduct experiments on three benchmark datasets, which are commonly-used in domain generalization. We first introduce the datasets and the implementation details. Next, comprehensive ablation studies of our CDG framework are presented. Then we compare the performance of our CDG approach with the state-of-the-art methods to further demonstrate its effectiveness for the domain generalization task. Besides, we talk about the expandability and flexibility of ADS networks to explore more characteristics of CDG. Last but not least, we give some visualization results of the trained features.
+
+\subsection{Datasets}
+Several example images from the three benchmark datasets are shown in Fig.~\ref{fig:datasets}. Following is the detailed information:
+
+\noindent \textbf{VLCS} \citep{fang2013unbiased} dataset consists of 18,239 images from four standard datasets (domains)---PASCAL VOC \citep{everingham2010pascal}, LabelMe \citep{russell2008labelme}, Caltech101 \citep{fei2004learning} and SUN09 \citep{choi2010exploiting}. The images can be classified to five categories (i.e., bird, car, chair, dog, and person). For the evaluation on VLCS, we randomly split each domain into training (70\%) and test (30\%) sets following the same protocol adopted by \citep{motiian2017unified}.
+
+\noindent \textbf{PACS} \citep{li2017deeper} dataset is recently released, which consists of four domains including Photo (Phot), Art Painting (Art), Cartoon (Cart) and Sketch (Sket). There are totally 9,991 images from seven classes, \ie dog, elephant, giraffe, guitar, horse, house, and person. For a fair comparison, the evaluation experiments on PACS dataset are conducted according to the official protocol \citep{li2017deeper}.
+
+\noindent \textbf{Office-Home} \citep{venkateswara2017deep} dataset contains around 15,500 images, which can be categorized to 65 object classes commonly seen in office and home. There are four source domains (i.e., Artistic, Clipart, Product and Real World). The Office-Home dataset has the largest number of categories among the three benchmark datasets.
+
+
+\subsection{Implementation Details and Evaluation Metrics}
+We implement the proposed CDG framework using PyTorch \citep{paszke2019pytorch}. The model is trained on the NVIDIA TITAN Xp GPU using the SGD optimizer, with the same data augmentation strategy to \citep{carlucci2019domain}. The training details for different backbones of the main branch are specific. For AlexNet \citep{imagenetkrizhevsky2012}, we crop images to 227$\times$227 pixels and train 50 epochs with the batch size set as 60. The initial learning rate is 0.001, decayed by 20\% after every 30 epochs. For ResNet \citep{HeZRS16} networks, the images are cropped to 224$\times$224 pixels with the initial learning rate set as 0.002. ADS networks are trained with domain-specific data regarding to source domains while the target model is trained using all the data. All the ADS networks use the same backbone network of the target model, if not specifically stated.
+
+
+We perform a leave-one-domain-out evaluation to evaluate the DG performance, i.e., one domain is selected as the test domain while the rest is used as source domains for training. The top-1 object classification accuracy (\%) is measured for performance comparison. We separately report the performance of each unseen domain and take an average as the final results, which is similar to the previous works \citep{huangRSC2020, balaji2018metareg, dou2019domain}. All the reported results are obtained by averaging the accuracy of three repeated experiments with random seeds.
+
+
+\subsection{Ablation Studies}
+In this section, a comprehensive ablation study is conducted on the PACS dataset to evaluate the contribution made by each module of our CDG framework. For convenience, we term the combination of the first convolution, batch normalization and ReLU units of ResNet as {\bf layer0}. The vanilla-trained ResNet-18 is adopted as the strong {\bf Baseline} as per Epi-FCR \citep{li2019episodic}. In the experiment, we found that data distribution in each batch could significantly affect the baseline results. Specifically, if data from each domain is uniformly distributed in the batch, we could get much better results than an overbalanced one, e.g., each batch only contains data from one domain (though the weights of model are updated together). We show the compared results in Table~\ref{tab:baseline} (three domains / per batch vs. one domain / per batch) as follows.
+
+% %---------------------------baseline methods-----------------------------------
+\begin{table}[htb]
+  \caption{Domain generalization performance of vanilla ResNet-18 with different batch data strategies. }
+  % CDG \textit{compl} refers to using the complement mask to gate the information in CDG training. 
+  \label{tab:baseline}
+  \begin{center}
+    \begin{tabularx}{0.5\textwidth}{p{.18\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Batch Strategy                                     & Art           & Cart       & Phot & Sket        & Avg           \\
+      \midrule[0.4pt]
+      % baseline (group)   &\multirow{4}{*}{ResNet-18} & 84.0         & 84.0    & 84.0  & 84.0  & avg \\
+      three domains / batch                         & \textbf{79.8}  & \textbf{75.5} & \textbf{95.8}  & 72.5  & \textbf{80.9}          \\
+      \midrule[0.4pt]
+      one domain / batch                            & 77.9          & 73.2          & 87.1  & \textbf{73.8}  & 74.5         \\
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+% %------------------------------------------------------------------------
+
+In CDG, we perform the cross-domain activation using ``one domain / batch" setting with ``three domains / batch" as the vanilla training for the best trial.
+
+\subsubsection{Effectiveness analysis on cross-domain gating}
+Our CDG approach aims to discard the information irrelevant to object classification during the training. To verify the effectiveness of our cross-domain gating strategy, several widely-used information dropout methods are involved for comparison: A) Channel Dropout that mutes feature maps randomly; B) Spatial Dropout \citep{tompson2015efficient}, which randomly drops the features from the same position across channels; C) Cutout \citep{devries2017improved}, randomly dropping images patches for the input; D) DropBlock \citep{ghiasi2018dropblock}, performing structured dropout and spatially discarding a contiguous region of a feature map; E) Adversarial Dropout \citep{ParkPSM18} and F) RSC \citep{huangRSC2020}.
+
+% %---------------------------Dropout methods-----------------------------------
+\begin{table}[htb]
+  \caption{Ablation on cross-domain gating strategy. We report the results of the compared dropout methods with their best settings for fair comparison. We perform cross-domain validation on the PACS dataset with ResNet-18 as the backbone. }
+  % CDG \textit{compl} refers to using the complement mask to gate the information in CDG training. 
+  \label{tab:dropout}
+  \begin{center}
+    \begin{tabularx}{0.5\textwidth}{p{.16\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Methods                                     & Art           & Cart       & Phot & Sket        & Avg           \\
+      \midrule[0.4pt]
+      % baseline (group)   &\multirow{4}{*}{ResNet-18} & 84.0         & 84.0    & 84.0  & 84.0  & avg \\
+      Baseline                                    & 79.8          & 75.5          & 95.8  & 72.5          & 80.9          \\
+      Channel Dropout                             & 80.1          & 76.5          & 95.8  & 73.8          & 81.5          \\
+      Spatial Dropout  & 79.8          & 77.2          & 95.8  & 71.8          & 81.2          \\
+      Cutout            & 79.6          & 77.2          & 95.9  & 71.6          & 80.6          \\
+      DropBlock         & 80.3          & 77.5          & 95.6  & 76.4          & 82.5          \\
+      AdversarialDropout & 82.4      & 78.2    & \textbf{96.1}      & 75.9    & 83.0 \\
+      RSC                      & 83.4          & \textbf{80.3} & 96.0  & 80.9          & 85.2          \\
+      \midrule[0.2pt]
+      % CDG-compl                                   & 82.5          & 78.2          & 94.1  & 73.2          & 82.0          \\
+      CDG (Ours)                                        & \textbf{83.5} & 80.1          & 95.6  & \textbf{83.8} & \textbf{85.8} \\
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+% %------------------------------------------------------------------------
+
+Table~\ref{tab:dropout} shows the results yielded by different information dropout approaches. It can be observed that Cutout \citep{devries2017improved} obtains lowest accuracy among the listed methods, due to the lack of feature level intervention. Since the channel dropout and spatial dropout are stochastic methods, which may discard useful information for image classification, their accuracies are relatively lower than the non-stochastic ones (i.e., AdversarialDropout and RSC). Our CDG achieves the best accuracy (an Avg of 85.8\%) and we summarize the underlying reason into two-fold: 1) The cross-domain knowledge is embedded into the main branch model during our CDG training, which has not been explored by the previous dropout methods; and 2) we focus on explicitly discarding redundant domain-specific information. Based on these two advantages, the proposed CDG approach can enforce the model to learn better cross-domain representation and alleviate the domain shift for the DG task.
+
+
+%######################Table gating layers###############################
+\begin{table}[tb]
+  \caption{Gating at different layers. We discard information from different layers using CDG and test the classification performance. We perform cross-domain validation on the PACS dataset with ResNet-18 as the backbone.}
+  \label{tab:layers}
+  \begin{center}
+    \begin{tabularx}{0.5\textwidth}{p{.1\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+      \toprule[0.6pt]
+      Layer & Art & Cart & Phot & Sket & Avg           \\
+      \midrule[0.4pt]
+
+      Baseline     & 79.8       & 75.5             & \textbf{95.8}   & 72.5            & 80.9          \\
+      Layer0       & 81.5       & 77.3             & 94.4            & 79.8            & 83.2          \\
+      Layer1       & \textbf{82.5}  & \textbf{78.2}  & 94.1          & \textbf{82.1}   & \textbf{84.2} \\
+      Layer2       & 80.1       & 77.5             & 93.8            & 78.2            & 82.4          \\
+      Layer3       & 76.7       & 78.1             & 94.0            & 72.2            & 80.2          \\
+      Layer4       & 80.4       & 77.6             & 95.5            & 73.8            & 81.1          \\
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+% ########################################################################################
+
+
+\subsubsection{Gating layers}
+In this section, we evaluate the performance of our CDG strategy by gating features from different layers. We only use the channel-wise CDG to reduce the impact of randomness. The gating rate $p$ is set to 0.3. To further demonstrate the importance and generalization of gating position for DG, we repeat the experiment with Channel Dropout. The results are reported in Table~\ref{tab:layers} and Table~\ref{tab:layers_dropout}, respectively. Similar results from two methods could be observed that gating the features from shallow layers achieves better average accuracies than the ones from deep layers. The underlying reason is that features extracted from the deep layers, mainly containing the semantic information, are less sensitive to the domain shift problem, which neutralize the improvement yielded by feature dropout. In contrast, features from the shallow layers mainly focus on the relatively low-level information such as color, edge and texture, which may be biased due to the domain shift problem. Therefore, our CDG strategy proposes to deal with the domain shift problem by manipulating the features from shallow layers of the model.
+
+%######################Table. gating layer study conv2d######################
+\begin{table}[htb]
+  \caption{Channel dropout on different layers. We perform cross-domain validation on the PACS dataset with ResNet-18 as the backbone.}
+  \label{tab:layers_dropout}
+  \begin{center}
+    \begin{tabularx}{0.5\textwidth}{p{.1\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Layer & Art & Cart & Phot & Sket & Avg           \\
+      \midrule[0.4pt]
+
+      Baseline      & 79.8        & 75.5            & \textbf{95.8}  & 72.5   & 80.9          \\
+      Layer0        & 79.9        & 76.6            & 95.0           & 77.1   & 82.1          \\
+      Layer1        & \textbf{82.8}       & 78.6    & 95.6           & 74.7   & 82.9          \\
+      Layer2        & 82.6        & 77.8            & 94.6           & \textbf{77.2}   & \textbf{83.0} \\
+      Layer3        & 80.5        & \textbf{79.8}   & \textbf{95.8}  & 74.6   & 82.7          \\
+      Layer4        & 80.1        & 76.5            & \textbf{95.8}  & 73.8   & 81.5          \\
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+%########################################################################################
+
+Another interesting observation is that when gating information from higher layers, we obtain obviously better performance on the \textit{photo} domain, while worse performance on the \textit{sketch} and \textit{art\_paint} domains domain. This is because \textit{photo} tends to have larger size of foreground area (i.e., area containing information) with more explicit details; it becomes much more important for the model to maintain diversity for generalizing well to this domain. On the contrary, \textit{sketch} and \textit{art\_paint} is endowed with abstract semantics and discarding redundant low-level information gives an impressive gain for such domains.
+
+
+\subsubsection{Channel-wise and spatial-wise cross-domain activation}
+As illustrated in Section~\ref{sec:weights}, we implement two approaches, i.e., channel-wise CDG and spatial-wise CDG, to aggregate the cross-domain gradients and generate $W^\mathbf{y}$. To evaluate the improvement yielded by each approach, we assess the accuracy of CDG solely using the channel-wise or spatial-wise aggregation approach and report the results in Table~\ref{tab:weights}. The combination of channel-wise and spatial-wise aggregation approaches (C+S)  is also evaluated.
+ 
+According to Table~\ref{tab:layers}, we gate the features from layer1 with a gating rate $p$ of 0.3. As presented in Table~\ref{tab:weights}, the aggregation method also affects the performance of our CDG approach. The CDG using channel-wise aggregation yields a better result than the spatial-wise one, especially when unseen domain is \textit{sketch}. The combination C+S achieves the best average accuracy (85.0\%), which is 0.8\% higher than the channel-wise aggregation.
+
+%################################ Table channel spatial ###########################################
+\begin{table}[htb]
+  \caption{Ablation study on channel-wise and spatial-wise CDG. C+S refers to randomly choose one of C or S aggregation function with 50\% probability. We do not use \textit{drop-while-preserve} strategy in this study for a better comparison.}
+  \label{tab:weights}
+  \begin{center}
+    \begin{tabularx}{0.48\textwidth}{p{.1\textwidth}<{\centering}|p{.06\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Layer & Art & Cart & Phot & Sket & Avg           \\
+      \midrule[0.4pt]
+
+      Channel (C)  & 82.5       & 78.2    & 94.1  & 82.1   & 84.2          \\
+      Spatial (S)  & 81.7       & 77.5    & 94.8  & 76.2   & 82.6          \\
+      C + S        & 83.0       & 79.2    & 94.7  & 83.2   & \textbf{85.0} \\
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+% ################################################################################################
+
+\subsubsection{Gating rate and drop-while-preserve strategy}
+Similar to the existing DG methods \citep{li2019episodic,huangRSC2020}, we achieve the best performance by coupling the CDG strategy with the vanilla training by the way presented in Algorithm~\ref{alg:strategy}. As a hyperparameter, the gating rate $p$ may directly influence the classification accuracy of the main branch model.
+
+
+To this end, we evaluate the performance of our CDG approach with ten different values of $p$---from $0$ to $1$ with $0.1$ as the interval ($0$ refers to the baseline which does not leverage the gating mechanism). The evaluation results are shown in Fig.~\ref{fig:rate}. We have several observations from observing the presented results (solid makers): First, the accuracy of our CDG approach decreases as the $p$ increases from $0.3$ to $1$. A large $p$ makes the CDG framework gate a considerable number of features in each iteration, which decreases the feature diversity and accordingly degrades the model generalization. This problem becomes obvious while generalizing the model to the domain with richer visual information than that of the training sources. For example, the model performance significantly drops while using the \textit{art, cartoon, sketch} domains for training, and \textit{photo} for testing.
+
+Fig.~\ref{fig:rate} also demonstrates the effectiveness of our proposed \textit{drop-while-preserve} strategy (\textit{\textit{d.p.}} for short), which overcomes the previously mentioned problem---imbalance information contained in the training and testing domains. The \textit{d.p.} strategy transforms our CDG approach from directly \textbf{dropping} features to \textbf{preserving} information for an effective feature combination, which can be easily observed from results for \textit{Photo} and \textit{Sketch}---the model achieves stable accuracies for the variation of $p$. This enables us to maximize the effect of CDG without caring too much about the information loss, \ie we can see that when performing d.p. strategy (solid makers in Fig.\ref{fig:rate}) with larger gating rates (0.4 \& 0.5), we could still achieve comparable results to the best ones without performing d.p. strategy (gating rate is 0.3).  
+
+% -------------------------Fig. dropwhilepreserve --------------------------------
+\begin{figure}
+  \centering
+  \includegraphics[width=0.5\textwidth]{figures/rate.pdf}
+  \caption{The performance of CDG using different gating rates to validate the effectiveness of \textit{drop-while-preserve strategy} (\textit{d.p.}). the hollow and the solid makers refer to whether or not we use the \textit{d.p.} strategy in the training. Only channel-wise CDG is performed in the training for a better comparison.}
+  \label{fig:rate}
+\end{figure}
+%-------------------------------------------------------------------------
+
+%################################ Table VLCS SOTA ################################################ 
+\begin{table*}[htb]
+  \caption{Domain generalization comparison (cross-domain object recognition) with state-of-the-art methods on the \textbf{VLCS} dataset using AlexNet as the backbone. Best in bold.}
+  \label{tab:vlcs}
+  \begin{center}
+    \begin{tabularx}{0.8\textwidth}{p{.3\textwidth}<{\centering}|p{.08\textwidth}<{\centering}|p{.08\textwidth}<{\centering}|p{.08\textwidth}<{\centering}|p{.07\textwidth}<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Methods                         & Caltech       & LabelMe       & Pascal        & Sun           & Avg           \\
+      \midrule[0.4pt]
+      % baseline (group)   &\multirow{4}{*}{ResNet-18} & 84.0         & 84.0    & 84.0  & 84.0  & avg \\
+      % baseline (mix)     && 80.1         & 77.8    & 95.2  & 76.5  & avg \\
+      Baseline                         & 96.5          & 57.9          & 67.8          & 62.3          & 71.1          \\
+      Epi-FCR \citep{li2019episodic}   & 94.1          & 64.3          & 67.1          & 65.9          & 72.9          \\
+      JiGen \citep{carlucci2019domain} & 96.9          & 60.9          & 70.6          & 64.3          & 73.2          \\
+      MASF \citep{dou2019domain}       & 94.8          & \textbf{64.9} & 69.1          & 67.6          & 74.1          \\
+      MetaVIB \citep{du2020learning}   & 97.4          & 62.7          & 70.3          & 67.9          & 74.5          \\
+      EISNet \citep{wang2020learning}  & 97.3          & 63.5          & 69.8          & 68.0          & 74.7          \\
+      RSC \citep{huangRSC2020}         & \textbf{97.6} & 61.9          & \textbf{73.9} & 68.3          & 75.4          \\
+
+      CDG (Ours)                      & 97.2          & 64.2          & 71.5          & \textbf{71.2} & \textbf{76.0} \\
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table*}
+%################################################################################################
+\subsection{Comparison with the State-of-the-art Methods}
+In this section, we compare the proposed CDG with the state-of-the-art methods on three DG benchmark datasets. The results reported in this section yielded by the CDG using both channel-wise and spatial-wise aggregation as well as the \textit{drop-while-preserve} strategy. The methods included for comparison are summarized as follows:  \textbf{Epi-FCR} \citep{li2019episodic} performed an episodic training with a cross-domain network; \textbf{MASF} \citep{dou2019domain} employed a meta-learning based strategy, in which two complementary losses are used for encoder regularization; \textbf{MetaVIB} \citep{zhou2020learning} learned domain-invariant representations by meta variational information bottleneck; \textbf{JiGen} \citep{carlucci2019domain} regularized the training by solving a self-supervised auxiliary jigsaw puzzle task; \textbf{EISNet} \citep{wang2020learning} used a multi-task learning paradigm to integrate extrinsic and intrinsic supervision; \textbf{RSC} \citep{huangRSC2020} self-challenged the training by muting the features with top activated gradients; \textbf{Hex} \citep{wang2019learning1} focused on extracting textural information instead of modeling semantic information; \textbf{PAR} \citep{wang2019learning} utilized patch-wise adversarial regularization to penalize local representations; \textbf{MetaReg} \citep{balaji2018metareg} employed a classifier regularization in the meta-learning. All the results of compared methods are taken from the original papers for a fair comparison. 
+
+
+
+\subsubsection{Evaluation on VLCS dataset}
+\label{sec:vlcs}
+Since AlexNet is commonly used by the existing approaches to report results on the VLCS dataset, we adopt AlexNet as the backbone of the main branch and perform the cross-domain gating on the second convolution unit. The comparison results are shown in Table~\ref{tab:vlcs}. Our CDG approach surpasses the baseline by nearly 5\%, which is the new state-of-the-art (i.e., 76.0\%) on the VLCS dataset. Specifically, the classification accuracy on the Sun dataset yielded by our CDG approach significantly outperforms the runner-up (i.e., RSC). For the rest three domains (i.e., Caltech, LabelMe and Pascal), the accuracy of our CDG is still comparable to the best performer.
+
+
+
+%################################ Table PACS SOTA ################################
+\begin{table*}[htb]
+  \caption{Domain generalization comparison (cross-domain object recognition) with state-of-the-art methods on the \textbf{PACS} datasets using different backbone networks. Best in bold.}
+  \label{tab:pacs}
+  \begin{center}
+    \begin{tabularx}{0.9\textwidth}{p{.25\textwidth}<{\centering}|p{.08\textwidth}<{\centering}|p{.08 \textwidth}<{\centering}|p{.08 \textwidth}<{\centering}|p{.08 \textwidth}<{\centering}|p{.08 \textwidth}<{\centering}|X<{\centering}}
+      % \begin{tabularx}{0.5\textwidth}{p{.09\textwidth}<{\centering}|p{.05\textwidth}|p{.04\textwidth}<{\centering}|p{.04\textwidth}<{\centering}|p{.04\textwidth}<{\centering}|p{.04\textwidth}<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      \hspace{1em} Methods             & Backbone                  & Art           & Cart       & Phot         & Sket        & Avg                    \\
+      \midrule[0.4pt]
+
+      % alexnet
+      Baseline                         & \multirow{8}{*}{AlexNet
+      }
+                                       & 68.2                      & 69.8          & 89.1          & 60.3          & 71.9                                   \\
+      Hex \citep{wang2019learning1}     &                           & 66.8          & 69.7          & 87.9          & 56.3          & 70.2                   \\
+      Epi-FCR \citep{li2019episodic}    &                           & 64.7          & 72.3          & 86.1          & 65.0          & 72.0                   \\
+      PAR \citep{wang2019learning}      &                           & 66.0          & 68.3          & 89.6          & 64.1          & 72.1                   \\
+      MetaReg \citep{balaji2018metareg} &                           & 69.8          & 70.3          & 91.1          & 59.3          & 72.6                   \\
+      JiGen \citep{li2019episodic}      &                           & 67.6          & 71.7          & 89.0          & 65.2          & 73.4                   \\
+      MASF \citep{dou2019domain}        &                           & 70.4          & 72.5          & 90.7          & 67.3          & 75.2                   \\
+      MetaVIB \citep{du2020learning}    &                           & \textbf{71.9} & 73.2          & \textbf{91.9} & 65.9          & 75.7                   \\
+      EISNet \citep{wang2020learning}   &                           & 70.4          & 71.6          & 91.2          & 70.3          & 75.9                   \\
+      RSC \citep{huangRSC2020}          &                           & 71.6          & \textbf{75.1} & 90.9          & 66.6          & 76.1                   \\
+      CDG (Ours)                       &                           & 70.5          & 74.8          & 90.1          & \textbf{70.4} & \textbf{76.5}          \\
+      \midrule[0.4pt]
+      % ResNet-18
+      Baseline                         & \multirow{8}{*}{ResNet-18}
+                                       & 80.1                      & 75.3          & 95.2          & 68.9          & 81.4                                   \\
+      Epi-FCR \citep{li2019episodic}    &                           & 82.1          & 77.0          & 93.9          & 73.0          & 81.5                   \\
+      MASF \citep{dou2019domain}        &                           & 80.3          & 77.2          & 95.0          & 71.69         & 81.0                   \\
+      MetaReg \citep{balaji2018metareg} &                           & 83.7          & 77.2          & 95.5          & 70.3          & 81.7                   \\
+      EISNet \citep{wang2020learning}   &                           & 81.9          & 76.4          & 95.9          & 76.4          & 82.2                   \\
+      L2A-OT \citep{zhou2020learning}   &                           & 83.3          & 78.2          & \textbf{96.2} & 73.6          & 82.8                   \\
+      RSC \citep{huangRSC2020}          &                           & 83.4          & \textbf{80.3} & 96.0          & 80.9          & 85.2                   \\
+      CDG (Ours)                       &                           & \textbf{83.5} & 80.1          & 95.6          & \textbf{83.8} & \textit{\textbf{85.8}} \\
+
+      \midrule[0.4pt]
+
+      Baseline                         & \multirow{6}{*}{ResNet-50}
+                                       & 86.7                      & 80.2          & 97.6          & 76.9          & 85.3                                   \\
+      MASF \citep{dou2019domain}        &                           & 82.9          & 80.5          & 95.0          & 72.3          & 81.0                   \\
+      MetaReg \citep{balaji2018metareg} &                           & 87.2          & 79.2          & 97.6          & 70.3          & 83.6                   \\
+      EISNet \citep{wang2020learning}   &                           & 86.6          & 81.5          & 97.1          & 78.1          & 85.8                   \\
+      RSC \citep{huangRSC2020}          &                           & 87.9          & 82.2          & \textbf{97.9} & 83.4          & 87.8                   \\
+      CDG (Ours)                       &                           & \textbf{88.9} & \textbf{83.5} & 97.6          & \textbf{84.9} & \textbf{88.7}          \\
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table*}
+% ################################################################################################
+
+% ################################ Table Office-Home SOTA ################################
+\begin{table*}[htb]
+  \caption{Domain generalization results (cross-domain object recognition) of different methods on the \textbf{Office-Home} dataset. ResNet-18 is used as the backbone. Best in bold.}
+  \label{tab:home}
+  \begin{center}
+    \begin{tabularx}{0.8\textwidth}{p{.3\textwidth}<{\centering}|p{.07\textwidth}<{\centering}|p{.07\textwidth}<{\centering}|p{.07\textwidth}<{\centering}|p{.07\textwidth}<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Methods                         & Art  & Clipart       & Product       & Real & Avg           \\
+      \midrule[0.4pt]
+      % baseline (group)   &\multirow{4}{*}{ResNet-18} & 84.0         & 84.0    & 84.0  & 84.0  & avg \\
+      % baseline (mix)     && 80.1         & 77.8    & 95.2  & 76.5  & avg \\
+      Baseline                        & 58.9          & 49.4          & 74.3          & 76.2          & 64.7          \\
+      JiGen \citep{carlucci2019domain} & 53.0          & 47.5          & 71.5          & 72.8          & 61.2          \\
+      RSC \citep{huangRSC2020}         & 58.4          & 47.9          & 71.6          & 74.5          & 63.1          \\
+      CCSA \citep{motiian2017unified}  & 59.9          & 49.9          & 74.1          & 75.7          & 64.9          \\ 
+      L2A-OT \citep{zhou2020learning}  & \textbf{60.6} & 50.1          & 74.8          & \textbf{77.0} & 65.6          \\
+      CDG (Ours)                      & 59.2          & \textbf{54.3} & \textbf{74.9} & 75.7          & \textbf{66.0} \\
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+
+\end{table*}
+% ################################################################################################
+
+\subsubsection{Evaluation on PACS dataset}
+The proposed CDG approach is compared with the state-of-the-art methods using various network architectures as the backbone, \ie AlexNet, ResNet-18, and ResNet-50. The evaluation results are presented in Table~\ref{tab:pacs}. Our CDG strategy achieves the best performances, consistently outperforming other competing methods on all backbones, which shows the advantages of our gating strategy. The improvement achieved by our CDG approach becomes more apparent using more a high-capacity network as backbone. For example, the CDG yields a more significant improvement to the baseline using ResNet-50, compared to the framework using AlexNet as the backbone.\footnote{The ResNet-50 achieves higher Top-1 accuracy than AlexNet on the ImageNet dataset; therefore, ResNet-50 is seen as the network with the higher capacity.} The underlying reason for the different improvements is that the high-capacity network learns better feature representation, which make the auxiliary models (ADS networks) easier to find the redundant information. It is worthwhile to emphasize that the proposed CDG method exceeds the alternative methods on the \textit{sketch} domain by a large margin ($+1.5\%$). This is because the PACS dataset encounters the severe domain shift problem, as presented in Fig.~\ref{fig:datasets} that there are large differences of appearances between domains. Hence, our cross-domain gating enables the model to ignore textural difference and focus on semantic information.
+
+
+\subsubsection{Evaluation on Office-Home dataset}
+In this experiment, the ResNet-18 is used as the backbone. The experimental results are shown in Table~\ref{tab:home}. It is worth noting that the vanilla-training baseline also yields impressive performance on this benchmark (i.e., an average accuracy of 64.7\%). This is because Office-Home is a relatively large dataset and the domain shift problem is not as severe as other two benchmark datasets, \eg the \textit{RealWorld} and \textit{Product} domains are both captured from the real-life environment as shown in Fig.~\ref{fig:datasets}. Nevertheless, our CDG approach still successfully boosts the baseline by a margin of 1.3\% and achieves the best average accuracy (66.0\%) among the listed algorithms. The images from the \textit{clipart} domain have similar appearance characteristics to the \textit{sketch} domain of the PACS dataset. Therefore, our CDG strategy yields a remarkable improvement ($+4.9\%$) to the baseline, which is 4.2\% higher than the runner-up (i.e., L2A-OT). 
+
+
+\subsection{Study on ADS networks}
+Since we build CDG on the distribution difference of cross-domain activation, we are interested in how ADS networks could affect CDG. In this section, we show more characteristics of CDG by exploring the ADS network module.
+
+\subsubsection{Backbone comparison}
+First, we test the performance of CDG using ADS networks of different backbones. Specifically, we use ResNet-34 / ResNet-18 / AlexNet to train ADS networks respectively, with ResNet-18 kept as the main model. Since the number of layer-wise features of AlexNet do not match the other two networks, we \textbf{retrain an 8-layer network similar to AlexNet} on the ImageNet dataset with the output shape coincided with ResNet-18. The retrained AlexNet achieves the comparable performance compared to the original one. We show the comparison results below.
+
+
+% %--------------------------- ADS backbone -----------------------------------
+\begin{table}[htb]
+  \caption{Study on different ADS networks on PACS dataset. - in ADS column means no cross-domain gating in the training which refers to the baseline. Best in bold.}
+  % CDG \textit{compl} refers to using the complement mask to gate the information in CDG training. 
+  \label{tab:expand}
+  \begin{center}
+    \begin{tabularx}{0.5\textwidth}{p{.08\textwidth}<{\centering}|p{.1\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Main                          & ADS               & Art           & Cart             & Phot             & Sket          & Avg       \\
+      \midrule[0.4pt]
+      \multirow{4}{*}{ResNet-18}  & -                      & 79.8          & 75.5          & 95.8          & 72.5          & 80.9          \\
+                                  & AlexNet                & 80.8          & 77.2          & 95.3          & 81.6          & 83.7          \\
+                                  & ResNet-18              & 83.5          & 80.1          & 95.6          & 83.8          & 85.8          \\
+                                  & ResNet-34              & 84.2          & 80.9          & 95.9          & 84.4          & \textbf{86.4} \\       
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+% %------------------------------------------------------------------------
+
+We could find that the CDG could surpass the baseline with all three models as ADS networks, which further validates its effectiveness. More importantly, we also observe that different ADS networks could evidently affect the performance of CDG. To be specific, when we use a model with higher capacity (ResNet-34) as the ADS networks, we have achieve better domain generalization results than the ResNet-18, and vice versa (for AlexNet). We owe the superiority of ADS networks with high capacity to its domain-specific representative ability, which could provide a more disparate cross-domain activation for CDG. As AlexNet gives less representative  domain-specific features, the information gating process is not as effective as others. This study shows the possible extendability of CDG on ADS networks with the target main model unchanged, which is more flexible than other methods. 
+
+\subsubsection{Heterogeneous ADS networks}
+
+DG methods tend to constrained from the problem setting that image from source domains have the same labels, which limits the practical applications. Inspired by the heterogeneous testing in Epi-FCR~\citep{li2019episodic}, we adapt our CDG to leverage external ADS networks. Specifically, we train an ADS network on another (distinct) source domain. Instead of using the ADS network's classifier, we calculate the gradients of cross-domain features by the main model's classifier. In this way, the newly-added ADS network serves as a pure cross-domain feature extractor, which do not require label consistency in the pretraining stage. 
+
+To validate the effectiveness of involving such heterogeneous ADS networks in CDG, we use two extra ADS networks to enhance the training of CDG on PACS dataset (7 categories). The two extra ADS networks are trained on SUN RGB-D dataset with scene classification loss (37 categories), using RGB and depth sets respectively. We show a example of RGB-D images in Fig.~\ref{fig:rgbd}. It's easy to observe that RGB scenes are composed of clustered objects while depth ones are encoded with horizontal disparity, height above ground and angle information; both two ADS networks exhibit significantly distinct distribution from ADS networks trained on PACS. The experimental results are listed as follows.
+
+%----------------------------Fig. rgbd--------------------------------
+\begin{figure}[tb]
+  \centering
+  \includegraphics[width=0.4\textwidth]{figures/rgbd.pdf}
+  \caption{Examples of RGB-D images (depth images are encoded with HHA format \citep{gupta2014learning}), which exhibit significantly distinct distribution from PACS dataset. }
+  \label{fig:rgbd}
+\end{figure}
+%-----------------------------------------------------------------------
+
+%################################ Heterogeneous ADS ###########################################
+\begin{table}[htb]
+  \caption{Effectiveness of heterogeneous ADS networks in CDG training on PACS dataset. All the branches use ResNet-18 as backbone networks. Best in bold.}
+  \label{tab:extra}
+  \begin{center}
+    \begin{tabularx}{0.5\textwidth}{p{.2\textwidth}<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}|X<{\centering}}
+
+      \toprule[0.6pt]
+      Model & Art & Cart & Phot & Sket & Avg           \\
+      \midrule[0.4pt]
+
+      CDG Original         & 83.5          & 80.1          & 95.6          & 83.8          & 85.8         \\
+      CDG + Extra ADS      & \textbf{84.5}          &\textbf{81.8}          & \textbf{96.7}          & \textbf{84.6}          & \textbf{86.9}          \\
+
+      \bottomrule[0.6pt]
+    \end{tabularx}
+  \end{center}
+\end{table}
+%##############################################################################################################
+
+From Table~\ref{tab:extra} we surprisingly find that involving extra ADS networks in the training of CDG could improve the domain generalization results by a big marginal (\textbf{+1.1}\% on average with performance on each domain increased). This indicates that CDG could enhance the gating process by introducing new domain-specific information in the training, and the training of newly-added ADS networks could be trained without label dependence on the target classes. This allows us to focus on the domain distribution comparison instead of the downstream task design for ADS networks. 
+
+%--------------------------Figure CAM examples-----------------------------------
+\begin{figure*}
+  % \centering
+  \includegraphics[width=\textwidth]{figures/examples.pdf}
+  \caption{More examples of CAM visualization. (a) and (c) show the original and gated attention of the target model, respectively, while (b) exhibits the attention of the ADS model which has very different statistics from the target model. Note, the feature maps are extracted from the layer1 of ResNet-18.}
+  \label{fig:vis}
+\end{figure*}
+%-------------------------------------------------------------------------
+% -------------------------Fig. T-SNE --------------------------------
+\begin{figure*}
+  % \centering
+  \includegraphics[width=\textwidth]{figures/tsne.pdf}
+  \caption{T-SNE visualization of domain embeddings on ResNet-18 trained in a vanilla manner (the top row), the random dropout method that randomly mutes the channels (the middle row), and our CDG (the bottom row). The embeddings learned with CDG are more compact than the others. Spots of the same colors refer to the images of the same category. Different columns present the results on different domains in cross-domain validation.}
+  \label{fig:tsne}
+\end{figure*}
+%-------------------------------------------------------------------------
+
+\subsection{Visualization}
+Apart from the quantitative evaluation, we also make qualitative analysis on the learned CNN models. We first visualize the gated features using the CAM technique \citep{zhou2016learning}. As the proposed CDG focuses on gating the low-level information, we perform CAM on the shallow layers (\eg layer1 of ResNet) to examine effectiveness of gating strategy. The visualization results is illustrated in Fig.~\ref{fig:vis}. It can be observed that the main branch and ADS generate different activation maps for the same input image, shown in columns (a) and (b). The gating operation discards the redundant domain-specific activation areas and results in a more compact activation focusing on the representative information for object classification (column (c)). For instance, in the third example from the VLCS dataset, the target model captures the entire body region to recognize a bird at the beginning, which is redundant for the correct recognition. After gating by the ADS model, the activation of representative parts of the bird such as head and wings, is maintained and emphasized, which enables the model to be trained with better generalization to unseen domains.
+
+Furthermore, we evaluate the learned models with t-SNE \citep{maaten2008visualizing}---a technique for dimensionality reduction that is widely leveraged in the visualization of learned high-dimensional features. We compare the CDG feature visualizations with the vanilla model and two other information discarded based methods, \ie the Channel Dropout model and RSC, the mutated activation differ in dependency on semantics. We could find in Fig.~\ref{fig:tsne} that features from CDG result in much more compact clusters than the vanilla and random dropout models; as for RSC, with competitive results for the first three domains, CDG shows obviously better clustered features for the \textit{sketch} domain, which accords with Table~\ref{tab:pacs}. The t-SNE is performed on the data from an unseen domain, which further validates that our CDG strategy encourages the model to learn a more universal representation, generalizing well to novel domains.
+
+
+%*********************************************************************
+%*********************** Conclusion **********************************
+%*********************************************************************
+\section{Conclusion and Future work}
+In this paper, we have proposed a novel cross-domain gated learning strategy for domain generalization, termed as CDG, that can be applied to most of the existing CNN architectures. We validated the importance of constraining features from earlier layers for the DG task and proposed to selectively gate redundant features in the training. We performed the gating through a cross-domain class activation process that effectively introduces cross-domain knowledge in the training which shows promising to build a bridge across domains. In addition, we introduced an effective \textit{drop-while-preserve} strategy to help the model exert the potential with a large gating rate in the training. CDG allows the model to focus on learning essential information to predict the label and learn robust representation against domain shift, which achieves state-of-the-art performance on three popular domain generalization benchmarks. 
+
+However, domain difference is not integrated in CDG, and the gating operation is supervised by a randomly chosen ADS model which may lead to limited assist for the generalization. In the future, we are going to further explore in this direction which may help us reduce the computational complexity and make the training more effective.
+
+
+\paragraph{\bf Acknowledgements.} This work is supported by the National Science Foundation of China (No. 62076119, No. 61921006), National Key R\&D Program of China (2018YFC2000702) and the Scientific and Technical Innovation 2030-``New Generation Artificial Intelligence" Project (No. 2020AAA0104100), and also supported by Program for Innovative Talents and Entrepreneur in Jiangsu Province, and Collaborative Innovation Center of Novel Software Technology and Industrialization, the Key-Area Research and Development Program of Guangdong Province, China (No. 2018B010111001). Part of this work was done when Dapeng Du was an intern at Tencent Jarvis Lab. Corresponding author: Yefeng Zheng and Limin Wang.
+
+
+% Authors must disclose all relationships or interests that 
+% could have direct or potential influence or impart bias on 
+% the work: 
+%
+% \section*{Conflict of interest}
+%
+% The authors declare that they have no conflict of interest.
+
+
+% BibTeX users please use one of
+\bibliographystyle{spbasic}      % basic style, author-year citations
+%\bibliographystyle{spmpsci}      % mathematics and physical sciences
+%\bibliographystyle{spphys}       % APS-like style for physics
+%\bibliography{}   % name your BibTeX data base
+
+% Non-BibTeX users please use
+\bibliography{dg}   % name your BibTeX data base
+% \begin{thebibliography}{dg}
+%
+% and use \bibitem to create references. Consult the Instructions
+% for authors for reference list style.
+% etc
+% \end{thebibliography}
+
+\end{document}
+% end of file template.tex
+
